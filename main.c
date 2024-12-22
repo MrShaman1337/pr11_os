@@ -8,10 +8,12 @@
 #define PORT 8080
 #define BUFFER_SIZE 1024
 #define IMAGE_PATH "herb.jpg"
+#define VALID_MESSAGE "СтепаковВД_ККСО-06-23_2"
 
 void handle_client(int client_sock, struct sockaddr_in client_addr);
 void send_404(int client_sock);
 void send_image(int client_sock);
+void url_decode(char *src, char *dest);
 
 int main() {
     int server_sock, client_sock;
@@ -42,7 +44,6 @@ int main() {
     printf("Сервер запущен на порту %d\n", PORT);
 
     while (1) {
-        // Принимаем входящее соединение
         if ((client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_addr_len)) == -1) {
             perror("Ошибка принятия соединения");
             continue;
@@ -76,9 +77,15 @@ void handle_client(int client_sock, struct sockaddr_in client_addr) {
 
         if (message_end) {
             *message_end = '\0';
-            printf("Сообщение от клиента: %s\n", message_start);
-            send_image(client_sock);
-            return;
+
+            char decoded_message[BUFFER_SIZE];
+            url_decode(message_start, decoded_message);
+            printf("Декодированное сообщение от клиента: %s\n", decoded_message);
+
+            if (strcmp(decoded_message, VALID_MESSAGE) == 0) {
+                send_image(client_sock);
+                return;
+            }
         }
     }
 
@@ -115,4 +122,24 @@ void send_image(int client_sock) {
     }
 
     fclose(image);
+}
+
+void url_decode(char *src, char *dest) {
+    char *p = src;
+    char code[3] = {0};
+
+    while (*p) {
+        if (*p == '%') {
+            strncpy(code, p + 1, 2);
+            *dest++ = (char)strtol(code, NULL, 16);
+            p += 3;
+        } else if (*p == '+') {
+            *dest++ = ' ';
+            p++;
+        } else {
+            *dest++ = *p++;
+        }
+    }
+
+    *dest = '\0';
 }
